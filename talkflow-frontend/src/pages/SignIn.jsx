@@ -12,6 +12,47 @@ import { useState } from "react";
 
 function SignIn() {
   const [otpSent, setOtpSent] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState("");
+  const [otp, setOtp] = useState("");
+
+  const handleVerifyOtp = async () => {
+    setError("");
+
+    if (otp.length !== 4) {
+      setError("Please enter the 4-digit OTP");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/verify-otp",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phone,
+            otp,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message);
+        return;
+      }
+
+      console.log("Login successful:", data.user);
+    } catch (error) {
+      console.error(error);
+      setError("Unable to connect to the server");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -28,15 +69,52 @@ function SignIn() {
         {!otpSent ? (
           <form
             className="mt-8 space-y-5"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              setOtpSent(true);
+
+              setError("");
+
+              try {
+                const response = await fetch(
+                  "http://localhost:5000/api/auth/send-otp",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      phone,
+                    }),
+                  },
+                );
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                  setError(data.message);
+                  return;
+                }
+
+                setOtpSent(true);
+              } catch (error) {
+                console.error(error);
+
+                setError("Unable to connect to the server");
+              }
             }}
           >
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
 
-              <Input id="phone" type="tel" placeholder="+92 300 1234567" />
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+92 300 1234567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
 
             <Button
@@ -59,7 +137,14 @@ function SignIn() {
             </div>
 
             <div className="flex justify-center">
-              <InputOTP maxLength={4}>
+              <InputOTP
+                maxLength={4}
+                value={otp}
+                onChange={(value) => {
+                  setOtp(value);
+                  setError("");
+                }}
+              >
                 <InputOTPGroup>
                   <InputOTPSlot index={0} />
                   <InputOTPSlot index={1} />
@@ -69,10 +154,11 @@ function SignIn() {
               </InputOTP>
             </div>
 
-            <Button
-              type="button"
-              className="w-full max-w-2/5 mx-auto block min-h-10"
-            >
+            {error && (
+              <p className="text-center text-sm text-destructive">{error}</p>
+            )}
+
+            <Button type="button" className="w-full" onClick={handleVerifyOtp}>
               Verify OTP
             </Button>
 
