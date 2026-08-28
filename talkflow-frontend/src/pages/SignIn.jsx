@@ -9,12 +9,14 @@ import {
 } from "@/components/ui/input-otp";
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function SignIn() {
   const [otpSent, setOtpSent] = useState(false);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [otp, setOtp] = useState("");
+  const navigate = useNavigate();
 
   const handleVerifyOtp = async () => {
     setError("");
@@ -46,7 +48,9 @@ function SignIn() {
         return;
       }
 
-      console.log("Login successful:", data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      navigate("/chat");
     } catch (error) {
       console.error(error);
       setError("Unable to connect to the server");
