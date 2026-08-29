@@ -183,6 +183,7 @@ function SignIn() {
           <button
             type="button"
             className="font-medium text-primary hover:underline"
+            onClick={() => navigate("/signup")}
           >
             Sign Up
           </button>
