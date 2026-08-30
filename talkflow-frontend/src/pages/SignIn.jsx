@@ -57,6 +57,32 @@ function SignIn() {
     }
   };
 
+  const handleResendOtp = async () => {
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/send-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message);
+        return;
+      }
+
+      setOtp("");
+    } catch (error) {
+      console.error(error);
+      setError("Unable to connect to the server");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
@@ -113,7 +139,7 @@ function SignIn() {
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+92 300 1234567"
+                placeholder="Enter your registered phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -171,6 +197,7 @@ function SignIn() {
               <button
                 type="button"
                 className="font-medium text-primary hover:underline"
+                onClick={handleResendOtp}
               >
                 Resend OTP
               </button>
