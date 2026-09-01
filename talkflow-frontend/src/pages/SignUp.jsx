@@ -14,7 +14,7 @@ import {
 
 function SignUp() {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
@@ -27,8 +27,8 @@ function SignUp() {
 
     setError("");
 
-    if (!name.trim() || !phone.trim()) {
-      setError("Name and phone number are required");
+    if (!name.trim() || !email.trim()) {
+      setError("Name and email are required");
       return;
     }
 
@@ -42,7 +42,7 @@ function SignUp() {
         },
         body: JSON.stringify({
           name: name.trim(),
-          phone: phone.trim(),
+          email: email.trim(),
         }),
       });
 
@@ -64,7 +64,7 @@ function SignUp() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            phone: phone.trim(),
+            email: email.trim(),
           }),
         },
       );
@@ -103,7 +103,7 @@ function SignUp() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            phone,
+            email,
             otp,
           }),
         },
@@ -134,7 +134,7 @@ function SignUp() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
@@ -179,13 +179,13 @@ function SignUp() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your registered phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your registered email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />{" "}
             </div>
 
@@ -202,11 +202,9 @@ function SignUp() {
         ) : (
           <div className="mt-8 space-y-6">
             <div className="text-center">
-              <h2 className="text-xl font-semibold">
-                Verify your phone number
-              </h2>
+              <h2 className="text-xl font-semibold">Verify your email</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Enter the 4-digit code sent to your phone
+                Enter the 4-digit code sent to your email
               </p>
             </div>
 

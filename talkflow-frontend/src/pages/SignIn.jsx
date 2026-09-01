@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 function SignIn() {
   const [otpSent, setOtpSent] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [otp, setOtp] = useState("");
   const navigate = useNavigate();
@@ -35,7 +35,7 @@ function SignIn() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            phone,
+            email,
             otp,
           }),
         },
@@ -66,7 +66,7 @@ function SignIn() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await response.json();
@@ -92,7 +92,7 @@ function SignIn() {
           <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
 
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in with your phone number
+            Sign in with your email
           </p>
         </div>
 
@@ -113,7 +113,7 @@ function SignIn() {
                       "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                      phone,
+                      email,
                     }),
                   },
                 );
@@ -134,14 +134,14 @@ function SignIn() {
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="email">Email</Label>
 
               <Input
-                id="phone"
-                type="tel"
-                placeholder="Enter your registered phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your registered email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -157,12 +157,10 @@ function SignIn() {
         ) : (
           <div className="mt-8 space-y-6">
             <div className="text-center">
-              <h2 className="text-xl font-semibold">
-                Verify your phone number
-              </h2>
+              <h2 className="text-xl font-semibold">Verify your email</h2>
 
               <p className="mt-2 text-sm text-muted-foreground">
-                Enter the 4-digit code sent to your phone
+                Enter the 4-digit code sent to your email
               </p>
             </div>
 

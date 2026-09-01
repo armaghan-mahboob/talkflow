@@ -1,18 +1,19 @@
 import Otp from "../models/Otp.js";
 import User from "../models/User.js";
+import { sendOtpEmail } from "../utils/mailer.js";
 
 export const sendOtp = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { email } = req.body;
 
-    if (!phone) {
+    if (!email) {
       return res.status(400).json({
-        message: "Phone number is required",
+        message: "Email is required",
       });
     }
 
     // Check if the user exists
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(404).json({
@@ -20,8 +21,8 @@ export const sendOtp = async (req, res) => {
       });
     }
 
-    // Remove previous OTP for this phone
-    await Otp.deleteMany({ phone });
+    // Remove previous OTP for this email
+    await Otp.deleteMany({ email });
 
     // Generate 4-digit OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -30,13 +31,23 @@ export const sendOtp = async (req, res) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await Otp.create({
-      phone,
+      email,
       otp,
       expiresAt,
     });
 
     // Temporary: display OTP in terminal
-    console.log(`OTP for ${phone}: ${otp}`);
+    console.log(`OTP for ${email}: ${otp}`);
+
+    try {
+      await sendOtpEmail(email, otp);
+    } catch (emailError) {
+      console.error("Failed to send OTP email:", emailError);
+
+      return res.status(500).json({
+        message: "Failed to send OTP email. Please try again.",
+      });
+    }
 
     res.json({
       message: "OTP sent successfully",
@@ -52,16 +63,16 @@ export const sendOtp = async (req, res) => {
 
 export const verifyOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
+    const { email, otp } = req.body;
 
-    if (!phone || !otp) {
+    if (!email || !otp) {
       return res.status(400).json({
-        message: "Phone number and OTP are required",
+        message: "Email and OTP are required",
       });
     }
 
     const otpRecord = await Otp.findOne({
-      phone,
+      email,
       otp,
     });
 
@@ -80,7 +91,7 @@ export const verifyOtp = async (req, res) => {
     }
 
     // Check whether the user already exists
-    const user = await User.findOne({ phone });
+    const user = await User.findOne({ email });
 
     if (!user) {
       await Otp.deleteOne({ _id: otpRecord._id });
@@ -97,7 +108,7 @@ export const verifyOtp = async (req, res) => {
       message: "Login successful",
       user: {
         id: user._id,
-        phone: user.phone,
+        email: user.email,
         name: user.name,
       },
     });
@@ -112,26 +123,26 @@ export const verifyOtp = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { phone, name } = req.body;
+    const { email, name } = req.body;
 
-    if (!phone || !name) {
+    if (!email || !name) {
       return res.status(400).json({
-        message: "Phone number and name are required",
+        message: "Email and name are required",
       });
     }
 
     // Check if account already exists
-    const existingUser = await User.findOne({ phone });
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(409).json({
-        message: "An account with this phone number already exists",
+        message: "An account with this email already exists",
       });
     }
 
     // Create new user
     const user = await User.create({
-      phone,
+      email,
       name,
     });
 
@@ -139,7 +150,7 @@ export const createUser = async (req, res) => {
       message: "Account created successfully",
       user: {
         id: user._id,
-        phone: user.phone,
+        email: user.email,
         name: user.name,
       },
     });
