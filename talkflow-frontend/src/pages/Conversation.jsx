@@ -4,6 +4,7 @@ import { ArrowLeft, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { socket } from "@/lib/socket";
 
 const Conversation = () => {
   const { conversationId } = useParams();
@@ -15,9 +16,39 @@ const Conversation = () => {
   const [conversation, setConversation] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
 
-  // Load conversation information + messages
+  useEffect(() => {
+    socket.emit("join-conversation", conversationId);
+  }, [conversationId]);
+
+  useEffect(() => {
+    socket.on("receive-message", (newMessage) => {
+      if (newMessage.conversation === conversationId) {
+        setMessages((prev) => [...prev, newMessage]);
+      }
+    });
+
+    return () => {
+      socket.off("receive-message");
+    };
+  }, [conversationId]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) return;
+
+    socket.emit("send-message", {
+      conversation: conversationId,
+      sender: user.id,
+      content: trimmedMessage,
+    });
+
+    setMessage("");
+  };
+
   useEffect(() => {
     const loadConversation = async () => {
       try {
@@ -75,44 +106,6 @@ const Conversation = () => {
   };
 
   const otherParticipant = getOtherParticipant();
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-
-    const trimmedMessage = message.trim();
-
-    if (!trimmedMessage || sending) return;
-
-    try {
-      setSending(true);
-
-      const response = await fetch("http://localhost:5000/api/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          conversation: conversationId,
-          sender: user.id,
-          content: trimmedMessage,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to send message");
-      }
-
-      setMessages((previousMessages) => [...previousMessages, data.data]);
-
-      setMessage("");
-    } catch (error) {
-      console.error("Error sending message:", error);
-    } finally {
-      setSending(false);
-    }
-  };
 
   return (
     <div className="flex h-screen flex-col">
@@ -181,14 +174,9 @@ const Conversation = () => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
-            disabled={sending}
           />
 
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!message.trim() || sending}
-          >
+          <Button type="submit" size="icon">
             <Send />
           </Button>
         </div>

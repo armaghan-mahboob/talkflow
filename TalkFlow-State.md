@@ -2,11 +2,11 @@
 
 ## Last Updated
 
-2026-09-02
+2026-09-03
 
 ## Current Phase
 
-Real conversation frontend implemented — chat selection, conversation routing, message history, and message sending are working with the existing REST APIs.
+Real-time messaging implemented via Socket.IO. REST is now used only for initial data loading (conversation list, message history); sending/receiving messages is fully socket-based.
 
 ## Completed
 
@@ -32,47 +32,55 @@ Real conversation frontend implemented — chat selection, conversation routing,
 
 ### Data Models
 
-- `Conversation` model created (`participants` array referencing `User`).
-- `Message` model created (`conversation`, `sender` refs + `content` string, timestamps).
+- `Conversation` model (`participants` array referencing `User`).
+- `Message` model (`conversation`, `sender` refs + `content` string, timestamps).
 
-### REST APIs (tested via Postman)
+### REST APIs (still in use)
 
-- `POST /api/conversations` — creates a conversation between two participants; dedups via `$all`/`$size` so the same pair always returns the same conversation.
-- `GET /api/conversations/:userId` — returns all conversations for a user, with participants populated (`name`, `email`).
-- `POST /api/messages` — creates a message tied to a conversation + sender.
-- `GET /api/messages/:conversationId` — returns all messages for a conversation, sorted oldest→newest.
+- `POST /api/conversations` — creates a conversation between two participants; dedups via `$all`/`$size`.
+- `GET /api/conversations/:userId` — returns all conversations for a user, participants populated (`name`, `email`).
+- `GET /api/messages/:conversationId` — returns message history for a conversation, sorted oldest→newest. (Used for initial load only.)
 - `GET /api/users/lookup?email=` — looks up a user by email, returns `{ id, name, email }` or 404.
+
+### REST APIs (removed from use)
+
+- `POST /api/messages` — no longer called by the frontend. Sending is fully replaced by the `send-message` socket event. Endpoint/controller still exists in the backend but is unused.
+
+### Socket.IO — Real-time Messaging
+
+- Backend: raw `http.Server` created from the Express `app`; Socket.IO attached to it (`server.js`).
+- Backend: `io.on("connection")` handles:
+  - `join-conversation` — joins the socket to a room named by `conversationId`.
+  - `send-message` — persists the message via the `Message` model, then broadcasts `receive-message` to the room.
+- Frontend: shared socket instance created in `src/lib/socket.js` (single connection, imported wherever needed).
+- Frontend (`Conversation.jsx`):
+  - Joins the conversation's room on mount/`conversationId` change.
+  - Listens for `receive-message` and appends incoming messages to state (with cleanup via `socket.off`).
+  - `handleSendMessage` emits `send-message` instead of using `fetch`.
+- Verified working live between two separate logged-in sessions.
 
 ### Chat UI
 
-- Chat list screen implemented .
+- Chat list screen implemented.
 - Header and logout implemented.
 - Search icon exists but is not functional.
 - CHATS tab implemented; GROUPS/CALLS intentionally deferred.
 - Floating compose button implemented.
-- Compose flow:
-  - User enters another user's email.
-  - User lookup is performed through the backend.
-  - Self-chat is prevented.
-  - Conversation is created/fetched through the backend.
-  - User is navigated to the relevant conversation screen.
-- Conversation/chat screen implemented.
+- Compose flow: email lookup → self-chat prevented → conversation created/fetched → navigate to conversation.
+- Conversation/chat screen implemented, now with live send/receive.
 
 ### Conversation UI
 
-- Replaced hardcoded chat list data.
-- Displayed the other participant's name/email in each chat item.
-- Clicking an existing chat now opens its corresponding `conversationId`.
+- Displays the other participant's name/email in each chat item.
+- Clicking an existing chat opens its corresponding `conversationId`.
 
 ## Current Task
 
-1. Add Socket.IO for real-time message delivery.
-2. Reuse the existing `Conversation` and `Message` models for Socket.IO persistence.
-3. Update message sending/receiving to support live communication.
+Real-time messaging (Socket.IO) is functionally complete for 1-on-1 chat.
 
 ## Next
 
-1. Show all users avatars in chat screen header horizontaly. Active users will be unmuted and inactve users will be muted
+1. Show all users' avatars in chat screen header horizontally — active users unmuted, inactive muted.
 
 ## Scope
 
@@ -83,5 +91,6 @@ Real conversation frontend implemented — chat selection, conversation routing,
 
 ## Notes / Decisions
 
-- REST (conversations/messages) handles persistence + history load; Socket.IO (not yet built) will handle live delivery, reusing the same Mongoose models.
+- REST now handles only initial persistence/history load (conversations list, message history on open).
+- Sending and receiving messages is fully socket-based — no REST call on send.
 - Compose flow intentionally simple: type a friend's email, not a user-picker list.
