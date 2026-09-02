@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Real-time messaging implementation — REST layer complete, building conversation-creation flow before Socket.IO.
+Real conversation frontend implemented — chat selection, conversation routing, message history, and message sending are working with the existing REST APIs.
 
 ## Completed
 
@@ -45,28 +45,34 @@ Real-time messaging implementation — REST layer complete, building conversatio
 
 ### Chat UI
 
-- Chat list screen implemented (still using hardcoded chat data, not yet wired to backend).
+- Chat list screen implemented .
 - Header and logout implemented.
 - Search icon exists but is not functional.
 - CHATS tab implemented; GROUPS/CALLS intentionally deferred.
-- Floating compose button implemented:
-  - Opens an inline overlay with an email input.
-  - Submit handler looks up the entered email via `/api/users/lookup`, then creates/fetches a conversation via `POST /api/conversations`.
-  - Validates empty input and self-chat (can't message own email).
-  - On success, currently just logs the conversation to console and closes the overlay (no navigation yet — conversation screen doesn't exist).
-- Conversation/chat screen not implemented yet.
-- Visual theming deferred.
+- Floating compose button implemented.
+- Compose flow:
+  - User enters another user's email.
+  - User lookup is performed through the backend.
+  - Self-chat is prevented.
+  - Conversation is created/fetched through the backend.
+  - User is navigated to the relevant conversation screen.
+- Conversation/chat screen implemented.
+
+### Conversation UI
+
+- Replaced hardcoded chat list data.
+- Displayed the other participant's name/email in each chat item.
+- Clicking an existing chat now opens its corresponding `conversationId`.
 
 ## Current Task
 
-Build the conversation screen so `handleStartChat` can navigate to it instead of just logging the result.
+1. Add Socket.IO for real-time message delivery.
+2. Reuse the existing `Conversation` and `Message` models for Socket.IO persistence.
+3. Update message sending/receiving to support live communication.
 
 ## Next
 
-1. Build conversation/chat screen (route + basic message list + input, using existing `/api/messages` REST routes for now).
-2. Wire chat list (currently hardcoded) to `GET /api/conversations/:userId`.
-3. Add Socket.IO for real-time send/receive, using the same Message model + save logic already built for REST.
-4. Update message-send flow to go through sockets instead of (or alongside) REST.
+1. Show all users avatars in chat screen header horizontaly. Active users will be unmuted and inactve users will be muted
 
 ## Scope
 
