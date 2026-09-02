@@ -1,112 +1,112 @@
-import { Search, SquarePen, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { LogOut, Search, SquarePen } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
-const chats = [
-  {
-    id: 1,
-    name: "Armaghan Mahboob",
-    time: "3:07 AM",
-    message: "Sounds good!",
-    unread: 2,
-  },
-  {
-    id: 2,
-    name: "Muhammad Riaz",
-    time: "10:30 AM",
-    message: "Sent a file: project_brief.pdf",
-    unread: 0,
-  },
-  {
-    id: 3,
-    name: "Haris Mirza",
-    time: "12:08 AM",
-    message: "Sent a file: project_brief.pdf",
-    unread: 2,
-  },
-  {
-    id: 4,
-    name: "Shumail",
-    time: "12:38 AM",
-    message: "Sent a file: project_brief.pdf",
-    unread: 0,
-  },
-  {
-    id: 5,
-    name: "Sadaqat",
-    time: "11:51 AM",
-    message: "Sounds good!",
-    unread: 2,
-  },
-  {
-    id: 6,
-    name: "Aryaan",
-    time: "12:59 AM",
-    message: "Sent a file: project_brief.pdf",
-    unread: 0,
-  },
-  {
-    id: 7,
-    name: "Ayehsa",
-    time: "9:07 PM",
-    message: "Sent a file: project_brief.pdf",
-    unread: 0,
-  },
-  { id: 8, name: "Sana", time: "", message: "Sounds good!", unread: 0 },
-];
 const Chat = () => {
   const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [showCompose, setShowCompose] = useState(false);
-  const [composeEmail, setComposeEmail] = useState("");
-  const [composeError, setComposeError] = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [startingChat, setStartingChat] = useState(false);
+
+  // Load real conversations
+  const fetchConversations = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `http://localhost:5000/api/conversations/${user.id}`,
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load conversations");
+      }
+
+      setConversations(data.data);
+    } catch (error) {
+      console.error("Error loading conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchConversations();
+    }
+  }, [user?.id]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     navigate("/signin");
   };
 
-  const handleStartChat = async () => {
-    setComposeError("");
+  const getOtherParticipant = (conversation) => {
+    return conversation.participants.find(
+      (participant) => participant._id !== user.id,
+    );
+  };
 
-    if (!composeEmail.trim()) {
-      setComposeError("Please enter an email");
+  const handleOpenConversation = (conversationId) => {
+    navigate(`/chat/${conversationId}`);
+  };
+
+  const handleStartChat = async (e) => {
+    e.preventDefault();
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    setError("");
+
+    if (!trimmedEmail) {
+      setError("Please enter an email.");
       return;
     }
 
-    const currentUser = JSON.parse(localStorage.getItem("user"));
-
-    if (composeEmail.trim().toLowerCase() === currentUser.email.toLowerCase()) {
-      setComposeError("You can't start a chat with yourself");
+    if (trimmedEmail === user.email.toLowerCase()) {
+      setError("You cannot start a conversation with yourself.");
       return;
     }
 
     try {
-      // Look up the user by email
+      setStartingChat(true);
+
+      // Find user
       const lookupResponse = await fetch(
         `http://localhost:5000/api/users/lookup?email=${encodeURIComponent(
-          composeEmail.trim(),
+          trimmedEmail,
         )}`,
       );
 
       const lookupData = await lookupResponse.json();
 
       if (!lookupResponse.ok) {
-        setComposeError(lookupData.message);
-        return;
+        throw new Error(lookupData.message || "User not found.");
       }
 
-      // Create (or get existing) conversation between the two users
+      // Create or get conversation
       const conversationResponse = await fetch(
         "http://localhost:5000/api/conversations",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            participants: [currentUser.id, lookupData.data.id],
+            participants: [user.id, lookupData.data.id],
           }),
         },
       );
@@ -114,112 +114,154 @@ const Chat = () => {
       const conversationData = await conversationResponse.json();
 
       if (!conversationResponse.ok) {
-        setComposeError(conversationData.message);
-        return;
+        throw new Error(
+          conversationData.message || "Failed to create conversation.",
+        );
       }
 
-      console.log("Conversation ready:", conversationData.data);
+      const conversation = conversationData.data;
 
+      // Close compose
       setShowCompose(false);
-      setComposeEmail("");
+      setEmail("");
+
+      // Open actual conversation
+      navigate(`/chat/${conversation._id}`);
     } catch (error) {
-      console.error(error);
-      setComposeError("Unable to connect to the server");
+      console.error("Error starting chat:", error);
+      setError(error.message);
+    } finally {
+      setStartingChat(false);
     }
   };
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-foreground">TalkFlow</h1>
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="flex h-16 items-center justify-between border-b px-4">
+        <h1 className="text-xl font-bold">TalkFlow</h1>
 
-          <div className="flex items-center gap-4">
-            <Search className="size-5 text-muted-foreground" />
-            <LogOut
-              className="size-5 cursor-pointer text-muted-foreground"
-              onClick={handleLogout}
-            />
-            <div className="size-8 rounded-full bg-muted" />
-          </div>
-        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon">
+            <Search />
+          </Button>
 
-        <div className="flex px-4">
-          <button className="border-b-2 border-primary px-3 py-2 text-sm font-medium text-foreground">
-            CHATS
-          </button>
-          {/* <button className="px-3 py-2 text-sm font-medium text-muted-foreground">
-            GROUPS
-          </button>
-          <button className="px-3 py-2 text-sm font-medium text-muted-foreground">
-            CALLS
-          </button> */}
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut />
+          </Button>
+
+          <Avatar>
+            <AvatarFallback>
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </header>
 
-      {/* Chat list region - scrollable */}
-      <main className="relative flex-1 overflow-y-auto">
-        <ul className="divide-y divide-border">
-          {chats.map((chat) => (
-            <li key={chat.id} className="flex items-center gap-3 px-4 py-3">
-              <Avatar size="lg">
-                <AvatarFallback>{chat.name.charAt(0)}</AvatarFallback>
-              </Avatar>
+      {/* Chats tab */}
+      <div className="border-b px-4">
+        <div className="py-3 text-sm font-semibold">CHATS</div>
+      </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="truncate font-medium text-foreground">
-                    {chat.name}
-                  </p>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {chat.time}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <p className="truncate text-sm text-muted-foreground">
-                    {chat.message}
-                  </p>
-                  {chat.unread > 0 && <Badge>{chat.unread}</Badge>}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        <button
-          onClick={() => setShowCompose(true)}
-          className="absolute bottom-6 right-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
-        >
-          <SquarePen className="size-6" />
-        </button>
-
-        {showCompose && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <div className="w-full max-w-sm rounded-xl bg-background p-4 shadow-lg">
-              <h2 className="mb-3 text-lg font-semibold">Start a new chat</h2>
-
-              <Input
-                type="email"
-                placeholder="Enter friend's email"
-                value={composeEmail}
-                onChange={(e) => setComposeEmail(e.target.value)}
-              />
-
-              {composeError && (
-                <p className="mt-2 text-sm text-destructive">{composeError}</p>
-              )}
-
-              <div className="mt-4 flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowCompose(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleStartChat}>Start Chat</Button>
-              </div>
-            </div>
+      {/* Conversation list */}
+      <main className="pb-24">
+        {loading ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            Loading conversations...
           </div>
+        ) : conversations.length === 0 ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">
+            No conversations yet.
+          </div>
+        ) : (
+          conversations.map((conversation) => {
+            const otherParticipant = getOtherParticipant(conversation);
+
+            if (!otherParticipant) return null;
+
+            return (
+              <button
+                key={conversation._id}
+                onClick={() => handleOpenConversation(conversation._id)}
+                className="flex w-full items-center gap-3 border-b p-4 text-left transition-colors hover:bg-muted/50"
+              >
+                <Avatar>
+                  <AvatarFallback>
+                    {otherParticipant.name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-medium">{otherParticipant.name}</h2>
+
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+
+                  <p className="truncate text-sm text-muted-foreground">
+                    {otherParticipant.email}
+                  </p>
+                </div>
+              </button>
+            );
+          })
         )}
       </main>
+
+      {/* Compose button */}
+      <Button
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full"
+        size="icon"
+        onClick={() => {
+          setShowCompose(true);
+          setError("");
+        }}
+      >
+        <SquarePen />
+      </Button>
+
+      {/* Compose overlay */}
+      {showCompose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border bg-background p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">Start a conversation</h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Enter the other user's email address.
+            </p>
+
+            <form onSubmit={handleStartChat} className="mt-4 space-y-3">
+              <Input
+                type="email"
+                placeholder="friend@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={startingChat}
+              />
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCompose(false);
+                    setError("");
+                  }}
+                  disabled={startingChat}
+                >
+                  Cancel
+                </Button>
+
+                <Button type="submit" disabled={startingChat}>
+                  {startingChat ? "Opening..." : "Start Chat"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

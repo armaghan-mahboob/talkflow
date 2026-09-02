@@ -5,6 +5,7 @@ import SignIn from "@/pages/SignIn";
 import SignUp from "@/pages/SignUp";
 import Chat from "@/pages/Chat";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Conversation from "@/pages/Conversation";
 
 const App = () => {
   return (
@@ -18,6 +19,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat/:conversationId"
+          element={
+            <ProtectedRoute>
+              <Conversation />
             </ProtectedRoute>
           }
         />
