@@ -2,6 +2,9 @@ import { Search, SquarePen, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 const chats = [
   {
@@ -57,10 +60,72 @@ const chats = [
 ];
 const Chat = () => {
   const navigate = useNavigate();
+  const [showCompose, setShowCompose] = useState(false);
+  const [composeEmail, setComposeEmail] = useState("");
+  const [composeError, setComposeError] = useState("");
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     navigate("/signin");
+  };
+
+  const handleStartChat = async () => {
+    setComposeError("");
+
+    if (!composeEmail.trim()) {
+      setComposeError("Please enter an email");
+      return;
+    }
+
+    const currentUser = JSON.parse(localStorage.getItem("user"));
+
+    if (composeEmail.trim().toLowerCase() === currentUser.email.toLowerCase()) {
+      setComposeError("You can't start a chat with yourself");
+      return;
+    }
+
+    try {
+      // Look up the user by email
+      const lookupResponse = await fetch(
+        `http://localhost:5000/api/users/lookup?email=${encodeURIComponent(
+          composeEmail.trim(),
+        )}`,
+      );
+
+      const lookupData = await lookupResponse.json();
+
+      if (!lookupResponse.ok) {
+        setComposeError(lookupData.message);
+        return;
+      }
+
+      // Create (or get existing) conversation between the two users
+      const conversationResponse = await fetch(
+        "http://localhost:5000/api/conversations",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            participants: [currentUser.id, lookupData.data.id],
+          }),
+        },
+      );
+
+      const conversationData = await conversationResponse.json();
+
+      if (!conversationResponse.ok) {
+        setComposeError(conversationData.message);
+        return;
+      }
+
+      console.log("Conversation ready:", conversationData.data);
+
+      setShowCompose(false);
+      setComposeEmail("");
+    } catch (error) {
+      console.error(error);
+      setComposeError("Unable to connect to the server");
+    }
   };
 
   return (
@@ -122,9 +187,38 @@ const Chat = () => {
           ))}
         </ul>
 
-        <button className="absolute bottom-6 right-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+        <button
+          onClick={() => setShowCompose(true)}
+          className="absolute bottom-6 right-6 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
+        >
           <SquarePen className="size-6" />
         </button>
+
+        {showCompose && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-sm rounded-xl bg-background p-4 shadow-lg">
+              <h2 className="mb-3 text-lg font-semibold">Start a new chat</h2>
+
+              <Input
+                type="email"
+                placeholder="Enter friend's email"
+                value={composeEmail}
+                onChange={(e) => setComposeEmail(e.target.value)}
+              />
+
+              {composeError && (
+                <p className="mt-2 text-sm text-destructive">{composeError}</p>
+              )}
+
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowCompose(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleStartChat}>Start Chat</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
