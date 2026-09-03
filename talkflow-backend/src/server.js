@@ -43,6 +43,10 @@ const PORT = process.env.PORT || 5000;
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
 
+  socket.on("disconnect", (reason) => {
+    console.log("Socket disconnected:", socket.id, reason);
+  });
+
   socket.on("join-conversation", (conversationId) => {
     socket.join(conversationId);
     console.log(`Socket ${socket.id} joined conversation ${conversationId}`);

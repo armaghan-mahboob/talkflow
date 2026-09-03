@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { socket } from "@/lib/socket";
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -50,7 +51,14 @@ const Chat = () => {
   }, [user?.id]);
 
   const handleLogout = () => {
+    console.log("Before disconnect:", socket.connected);
+
+    socket.disconnect();
+
+    console.log("After disconnect:", socket.connected);
+
     localStorage.removeItem("user");
+
     navigate("/signin");
   };
 
