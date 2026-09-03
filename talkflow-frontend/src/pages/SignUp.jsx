@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import Logo from "@/components/Logo";
@@ -19,6 +19,7 @@ function SignUp() {
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
 
   const navigate = useNavigate();
 
@@ -127,6 +128,7 @@ function SignUp() {
 
   const handleResendOtp = async () => {
     setError("");
+    setIsResendingOtp(true);
 
     try {
       const response = await fetch("http://localhost:5000/api/auth/send-otp", {
@@ -148,6 +150,8 @@ function SignUp() {
     } catch (error) {
       console.error(error);
       setError("Unable to connect to the server");
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -196,7 +200,14 @@ function SignUp() {
               disabled={loading}
               className="w-full max-w-2/5 mx-auto block min-h-12"
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <span>Creating Account</span>
+                  <Loader2 className="animate-spin" />
+                </div>
+              ) : (
+                "Create Account"
+              )}{" "}
             </Button>
           </form>
         ) : (
@@ -238,10 +249,18 @@ function SignUp() {
               Didn't receive the code?{" "}
               <button
                 type="button"
-                className="font-medium text-primary hover:underline"
+                disabled={isResendingOtp}
+                className="font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleResendOtp}
               >
-                Resend OTP
+                {isResendingOtp ? (
+                  <span className="inline-flex items-center gap-2">
+                    Resending OTP
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </span>
+                ) : (
+                  "Resend OTP"
+                )}
               </button>
             </p>
           </div>

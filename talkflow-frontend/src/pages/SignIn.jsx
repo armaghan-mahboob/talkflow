@@ -7,6 +7,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { Loader2 } from "lucide-react";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +17,8 @@ function SignIn() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [otp, setOtp] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
   const navigate = useNavigate();
 
   const handleVerifyOtp = async () => {
@@ -59,6 +62,7 @@ function SignIn() {
 
   const handleResendOtp = async () => {
     setError("");
+    setIsResendingOtp(true);
 
     try {
       const response = await fetch("http://localhost:5000/api/auth/send-otp", {
@@ -80,6 +84,8 @@ function SignIn() {
     } catch (error) {
       console.error(error);
       setError("Unable to connect to the server");
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -103,6 +109,7 @@ function SignIn() {
               e.preventDefault();
 
               setError("");
+              setIsSendingOtp(true);
 
               try {
                 const response = await fetch(
@@ -128,8 +135,9 @@ function SignIn() {
                 setOtpSent(true);
               } catch (error) {
                 console.error(error);
-
                 setError("Unable to connect to the server");
+              } finally {
+                setIsSendingOtp(false);
               }
             }}
           >
@@ -149,9 +157,17 @@ function SignIn() {
 
             <Button
               type="submit"
+              disabled={isSendingOtp}
               className="w-full max-w-2/5 mx-auto block min-h-10"
             >
-              Send OTP
+              {isSendingOtp ? (
+                <div className="flex items-center justify-center gap-4">
+                  Sending OTP
+                  <Loader2 className="animate-spin" />
+                </div>
+              ) : (
+                "Send OTP"
+              )}
             </Button>
           </form>
         ) : (
@@ -194,10 +210,18 @@ function SignIn() {
               Didn't receive the code?{" "}
               <button
                 type="button"
-                className="font-medium text-primary hover:underline"
+                disabled={isResendingOtp}
+                className="font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleResendOtp}
               >
-                Resend OTP
+                {isResendingOtp ? (
+                  <span className="inline-flex items-center gap-2">
+                    Resending OTP
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </span>
+                ) : (
+                  "Resend OTP"
+                )}
               </button>
             </p>
           </div>
