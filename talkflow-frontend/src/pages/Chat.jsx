@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { socket } from "@/lib/socket";
+import { socket, getOnlineUsers } from "@/lib/socket";
 
 const Chat = () => {
   const navigate = useNavigate();
@@ -20,6 +20,15 @@ const Chat = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [startingChat, setStartingChat] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState(getOnlineUsers());
+
+  useEffect(() => {
+    socket.on("online-users", setOnlineUsers);
+
+    return () => {
+      socket.off("online-users", setOnlineUsers);
+    };
+  }, []);
 
   // Load real conversations
   const fetchConversations = async () => {
@@ -165,6 +174,42 @@ const Chat = () => {
           </Avatar>
         </div>
       </header>
+
+      {/* Online contacts row */}
+      {!loading && conversations.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto border-b px-4 py-3">
+          {conversations.map((conversation) => {
+            const otherParticipant = getOtherParticipant(conversation);
+
+            if (!otherParticipant) return null;
+
+            const isOnline = onlineUsers.includes(otherParticipant._id);
+
+            return (
+              <div
+                key={conversation._id}
+                className="flex flex-col items-center gap-1"
+              >
+                <Avatar
+                  className={
+                    isOnline
+                      ? "ring-2 ring-green-500 ring-offset-2 ring-offset-background"
+                      : "opacity-70 grayscale"
+                  }
+                >
+                  <AvatarFallback>
+                    {otherParticipant.name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+
+                <span className="max-w-14 truncate text-[10px] text-muted-foreground">
+                  {otherParticipant.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Chats tab */}
       <div className="border-b px-4">

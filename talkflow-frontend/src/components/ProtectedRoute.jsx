@@ -8,6 +8,8 @@ const ProtectedRoute = ({ children }) => {
 
   useEffect(() => {
     if (user) {
+      const parsedUser = JSON.parse(user);
+      socket.auth = { userId: parsedUser.id };
       socket.connect();
       console.log("Socket connect requested for logged-in user");
     }

@@ -40,11 +40,29 @@ app.get("/api/health", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
+const onlineUsers = new Map();
+
+function broadcastOnlineUsers() {
+  io.emit("online-users", Array.from(onlineUsers.keys()));
+}
+
 io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
+  const userId = socket.handshake.auth.userId;
+
+  console.log("Socket connected:", socket.id, "user:", userId);
+
+  if (userId) {
+    onlineUsers.set(userId, socket.id);
+    broadcastOnlineUsers();
+  }
 
   socket.on("disconnect", (reason) => {
     console.log("Socket disconnected:", socket.id, reason);
+
+    if (userId) {
+      onlineUsers.delete(userId);
+      broadcastOnlineUsers();
+    }
   });
 
   socket.on("join-conversation", (conversationId) => {

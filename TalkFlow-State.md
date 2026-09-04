@@ -6,55 +6,45 @@
 
 ## Current Phase
 
-1-on-1 real-time chat with Socket.IO is working.
+Presence tracking (online users) is implemented. Online contacts row added to Chat screen.
 
 ## Completed
 
 ### Authentication
 
-- Email + 4-digit OTP authentication.
-- Sign Up: name + email → account creation → OTP → Chat.
-- Sign In: email → OTP → Chat.
-- Gmail SMTP/Nodemailer used for OTP.
-- Resend OTP implemented.
+- Email + 4-digit OTP authentication (Sign Up and Sign In flows).
+- Gmail SMTP/Nodemailer used for OTP delivery, with Resend OTP.
 - Authenticated user stored in localStorage.
-- `/chat` protected with `ProtectedRoute`.
-- `/` redirects based on authentication state.
-- Loading spinners added to Send OTP, Create Account, and Resend OTP actions.
+- `/chat` protected via `ProtectedRoute`; `/` redirects based on auth state.
 
 ### Chat
 
-- Chat list implemented.
-- Existing conversations open their conversation screen.
+- Chat list loads real conversations via REST.
 - Compose flow: email lookup → conversation creation/fetch → conversation screen.
-- Message history loads through REST.
-- Real-time sending/receiving implemented with Socket.IO.
-- Socket joins conversation rooms.
-- Logout properly disconnects the socket.
-- Verified real-time messaging between two logged-in sessions.
+- Message history loads via REST; real-time send/receive via Socket.IO.
+- Socket joins conversation rooms; logout disconnects the socket.
 
-### Current Socket Setup
+### Presence Tracking
 
-- Shared socket instance in `src/lib/socket.js`.
-- `autoConnect: false`.
-- `ProtectedRoute` connects the socket for authenticated users.
-- Logout disconnects the socket.
-- Server handles:
-  - `join-conversation`
-  - `send-message`
-  - `disconnect`
+- Socket connects with `auth: { userId }` set in `ProtectedRoute.jsx` before `socket.connect()`.
+- Backend (`server.js`) maintains an in-memory `Map` (`userId -> socketId`) and broadcasts the full online user list (`online-users` event) on every connect/disconnect.
+- Frontend caches the online user list in `src/lib/socket.js` (module-level, outside React state) so it survives component remounts (e.g. navigating back to Chat from a Conversation). Components read the cached value via `getOnlineUsers()` on mount and subscribe to `online-users` for updates.
+- Chat screen header shows a horizontal row of avatars for all conversation participants; online users get a green ring, offline users are dimmed (`opacity-70 grayscale`).
 
 ## Current Task
 
-Real-time 1-on-1 messaging is complete. Move to the next UI/functionality task.
+Presence tracking + avatar row complete and verified (tested across two sessions, including navigation edge case).
 
 ## Next
 
-1. Show user avatars horizontally in the chat screen header, with active users unmuted and inactive users muted.
+Unread message badge count on the chat list (currently hardcoded to 0). Design decision pending:
+
+- Option A: session-based, tracked in React state only (resets on refresh).
+- Option B: persisted in MongoDB (survives refresh/logout), requires schema change.
+  Decision deferred — to be picked up next session.
 
 ## Scope
 
-- 1-on-1 chat only.
-- No group chat yet.
+- 1-on-1 chat only, no group chat.
 - Focus on functionality before visual polish.
 - Do not restart completed work.
