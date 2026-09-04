@@ -2,95 +2,59 @@
 
 ## Last Updated
 
-2026-09-03
+2026-09-05
 
 ## Current Phase
 
-Real-time messaging implemented via Socket.IO. REST is now used only for initial data loading (conversation list, message history); sending/receiving messages is fully socket-based.
+1-on-1 real-time chat with Socket.IO is working.
 
 ## Completed
 
-### Setup
-
-- React + Vite frontend working.
-- Tailwind CSS v4 configured.
-- shadcn/ui configured.
-- Express backend working on port 5000.
-- MongoDB connection working.
-- CORS configured.
-
 ### Authentication
 
-- Email + 4-digit OTP authentication implemented.
-- Sign Up: name + email → OTP → Chat.
+- Email + 4-digit OTP authentication.
+- Sign Up: name + email → account creation → OTP → Chat.
 - Sign In: email → OTP → Chat.
-- OTP sent through Gmail SMTP/Nodemailer.
-- Resend OTP works.
-- Authenticated user stored in localStorage as `{ id, email, name }`.
-- `/chat` protected by `ProtectedRoute`.
+- Gmail SMTP/Nodemailer used for OTP.
+- Resend OTP implemented.
+- Authenticated user stored in localStorage.
+- `/chat` protected with `ProtectedRoute`.
 - `/` redirects based on authentication state.
+- Loading spinners added to Send OTP, Create Account, and Resend OTP actions.
 
-### Data Models
+### Chat
 
-- `Conversation` model (`participants` array referencing `User`).
-- `Message` model (`conversation`, `sender` refs + `content` string, timestamps).
+- Chat list implemented.
+- Existing conversations open their conversation screen.
+- Compose flow: email lookup → conversation creation/fetch → conversation screen.
+- Message history loads through REST.
+- Real-time sending/receiving implemented with Socket.IO.
+- Socket joins conversation rooms.
+- Logout properly disconnects the socket.
+- Verified real-time messaging between two logged-in sessions.
 
-### REST APIs (still in use)
+### Current Socket Setup
 
-- `POST /api/conversations` — creates a conversation between two participants; dedups via `$all`/`$size`.
-- `GET /api/conversations/:userId` — returns all conversations for a user, participants populated (`name`, `email`).
-- `GET /api/messages/:conversationId` — returns message history for a conversation, sorted oldest→newest. (Used for initial load only.)
-- `GET /api/users/lookup?email=` — looks up a user by email, returns `{ id, name, email }` or 404.
-
-### REST APIs (removed from use)
-
-- `POST /api/messages` — no longer called by the frontend. Sending is fully replaced by the `send-message` socket event. Endpoint/controller still exists in the backend but is unused.
-
-### Socket.IO — Real-time Messaging
-
-- Backend: raw `http.Server` created from the Express `app`; Socket.IO attached to it (`server.js`).
-- Backend: `io.on("connection")` handles:
-  - `join-conversation` — joins the socket to a room named by `conversationId`.
-  - `send-message` — persists the message via the `Message` model, then broadcasts `receive-message` to the room.
-- Frontend: shared socket instance created in `src/lib/socket.js` (single connection, imported wherever needed).
-- Frontend (`Conversation.jsx`):
-  - Joins the conversation's room on mount/`conversationId` change.
-  - Listens for `receive-message` and appends incoming messages to state (with cleanup via `socket.off`).
-  - `handleSendMessage` emits `send-message` instead of using `fetch`.
-- Verified working live between two separate logged-in sessions.
-
-### Chat UI
-
-- Chat list screen implemented.
-- Header and logout implemented.
-- Search icon exists but is not functional.
-- CHATS tab implemented; GROUPS/CALLS intentionally deferred.
-- Floating compose button implemented.
-- Compose flow: email lookup → self-chat prevented → conversation created/fetched → navigate to conversation.
-- Conversation/chat screen implemented, now with live send/receive.
-
-### Conversation UI
-
-- Displays the other participant's name/email in each chat item.
-- Clicking an existing chat opens its corresponding `conversationId`.
+- Shared socket instance in `src/lib/socket.js`.
+- `autoConnect: false`.
+- `ProtectedRoute` connects the socket for authenticated users.
+- Logout disconnects the socket.
+- Server handles:
+  - `join-conversation`
+  - `send-message`
+  - `disconnect`
 
 ## Current Task
 
-Real-time messaging (Socket.IO) is functionally complete for 1-on-1 chat.
+Real-time 1-on-1 messaging is complete. Move to the next UI/functionality task.
 
 ## Next
 
-1. Show all users' avatars in chat screen header horizontally — active users unmuted, inactive muted.
+1. Show user avatars horizontally in the chat screen header, with active users unmuted and inactive users muted.
 
 ## Scope
 
 - 1-on-1 chat only.
-- No group chat.
+- No group chat yet.
 - Focus on functionality before visual polish.
 - Do not restart completed work.
-
-## Notes / Decisions
-
-- REST now handles only initial persistence/history load (conversations list, message history on open).
-- Sending and receiving messages is fully socket-based — no REST call on send.
-- Compose flow intentionally simple: type a friend's email, not a user-picker list.
