@@ -10,13 +10,30 @@ export const createConversation = async (req, res) => {
       });
     }
 
-    // Check if a conversation already exists between these two users
     let conversation = await Conversation.findOne({
       participants: { $all: participants, $size: 2 },
     });
 
+    let isNew = false;
+
     if (!conversation) {
       conversation = await Conversation.create({ participants });
+      isNew = true;
+    }
+
+    conversation = await conversation.populate("participants", "name email");
+
+    if (isNew) {
+      const io = req.app.get("io");
+      const onlineUsers = req.app.get("onlineUsers");
+
+      participants.forEach((participantId) => {
+        const socketId = onlineUsers.get(participantId);
+
+        if (socketId) {
+          io.to(socketId).emit("new-conversation", conversation);
+        }
+      });
     }
 
     res.status(201).json({

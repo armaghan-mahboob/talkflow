@@ -7,12 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { socket, getOnlineUsers } from "@/lib/socket";
+import { useChatStore } from "../store/chatStore";
 
 const Chat = () => {
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
-
+  const [user] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user"));
+    } catch {
+      return null;
+    }
+  });
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,6 +28,12 @@ const Chat = () => {
   const [startingChat, setStartingChat] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(getOnlineUsers());
 
+  const unreadCounts = useChatStore((state) => state.unreadCounts);
+
+  const incrementUnread = useChatStore((state) => state.incrementUnread);
+
+  const clearUnread = useChatStore((state) => state.clearUnread);
+
   useEffect(() => {
     socket.on("online-users", setOnlineUsers);
 
@@ -30,33 +42,61 @@ const Chat = () => {
     };
   }, []);
 
-  // Load real conversations
-  const fetchConversations = async () => {
-    try {
-      setLoading(true);
-
-      const response = await fetch(
-        `http://localhost:5000/api/conversations/${user.id}`,
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to load conversations");
-      }
-
-      setConversations(data.data);
-    } catch (error) {
-      console.error("Error loading conversations:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (user?.id) {
-      fetchConversations();
-    }
+    socket.on("new-conversation", (conversation) => {
+      setConversations((prev) => [conversation, ...prev]);
+    });
+
+    const handleNewMessageNotification = ({ conversation }) => {
+      incrementUnread(conversation);
+    };
+
+    socket.on("new-message-notification", handleNewMessageNotification);
+
+    return () => {
+      socket.off("new-conversation");
+
+      socket.off("new-message-notification", handleNewMessageNotification);
+    };
+  }, [incrementUnread]);
+
+  // Load real conversations
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    const loadConversations = async () => {
+      try {
+        setLoading(true);
+
+        const response = await fetch(
+          `http://localhost:5000/api/conversations/${user.id}`,
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load conversations");
+        }
+
+        if (!cancelled) {
+          setConversations(data.data);
+        }
+      } catch (error) {
+        console.error("Error loading conversations:", error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadConversations();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   const handleLogout = () => {
@@ -78,9 +118,10 @@ const Chat = () => {
   };
 
   const handleOpenConversation = (conversationId) => {
+    clearUnread(conversationId);
+
     navigate(`/chat/${conversationId}`);
   };
-
   const handleStartChat = async (e) => {
     e.preventDefault();
 
@@ -247,8 +288,20 @@ const Chat = () => {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <h2 className="font-medium">{otherParticipant.name}</h2>
-
-                    <Badge variant="secondary">0</Badge>
+                    <Badge
+                      variant={
+                        unreadCounts[conversation._id] > 0
+                          ? "default"
+                          : "secondary"
+                      }
+                      className={
+                        unreadCounts[conversation._id] > 0
+                          ? "bg-green-500 text-black hover:bg-green-600"
+                          : ""
+                      }
+                    >
+                      {unreadCounts[conversation._id] || 0}
+                    </Badge>
                   </div>
 
                   <p className="truncate text-sm text-muted-foreground">
