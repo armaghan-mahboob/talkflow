@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Search, SquarePen } from "lucide-react";
+import { LogOut, Search, SquarePen, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,11 @@ const Chat = () => {
   const [error, setError] = useState("");
   const [startingChat, setStartingChat] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(getOnlineUsers());
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const unreadCounts = useChatStore((state) => state.unreadCounts);
 
@@ -99,6 +104,54 @@ const Chat = () => {
     };
   }, [user?.id]);
 
+  // Fixed Debounced search effect
+  useEffect(() => {
+    const query = email.trim();
+
+    // Hide dropdown if query is too short or if the email directly matches a selected suggestion
+    if (!query || query.length < 2) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+
+        const response = await fetch(
+          `http://localhost:5000/api/users/search?q=${encodeURIComponent(query)}`,
+        );
+        const data = await response.json();
+
+        if (response.ok && !isCancelled) {
+          const filtered = (data.data || []).filter(
+            (u) => u.email.toLowerCase() !== user?.email?.toLowerCase(),
+          );
+
+          // If the current query exactly matches one result's email (user just selected it), don't reopen dropdown
+          const isExactMatch = filtered.some(
+            (u) => u.email.toLowerCase() === query.toLowerCase(),
+          );
+
+          setSuggestions(filtered);
+          setShowDropdown(!isExactMatch && filtered.length > 0);
+        }
+      } catch (err) {
+        console.error("Error searching emails:", err);
+      } finally {
+        if (!isCancelled) {
+          setIsSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [email, user?.email]);
+
   const handleLogout = () => {
     console.log("Before disconnect:", socket.connected);
 
@@ -122,6 +175,13 @@ const Chat = () => {
 
     navigate(`/chat/${conversationId}`);
   };
+
+  const handleSelectUser = (selectedEmail) => {
+    setEmail(selectedEmail);
+    setSuggestions([]);
+    setShowDropdown(false);
+  };
+
   const handleStartChat = async (e) => {
     e.preventDefault();
 
@@ -182,6 +242,8 @@ const Chat = () => {
       // Close compose
       setShowCompose(false);
       setEmail("");
+      setSuggestions([]);
+      setShowDropdown(false);
 
       // Open actual conversation
       navigate(`/chat/${conversation._id}`);
@@ -321,6 +383,9 @@ const Chat = () => {
         onClick={() => {
           setShowCompose(true);
           setError("");
+          setEmail("");
+          setSuggestions([]);
+          setShowDropdown(false);
         }}
       >
         <SquarePen />
@@ -337,13 +402,55 @@ const Chat = () => {
             </p>
 
             <form onSubmit={handleStartChat} className="mt-4 space-y-3">
-              <Input
-                type="email"
-                placeholder="friend@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={startingChat}
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="friend@example.com"
+                  value={email}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEmail(val);
+
+                    if (val.trim().length < 2) {
+                      setSuggestions([]);
+                      setShowDropdown(false);
+                    }
+                  }}
+                  onFocus={() =>
+                    suggestions.length > 0 && setShowDropdown(true)
+                  }
+                  disabled={startingChat}
+                />
+
+                {isSearching && (
+                  <div className="absolute right-3 top-2.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* Dropdown Suggestions */}
+                {showDropdown && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
+                    {suggestions.map((sUser) => (
+                      <div
+                        key={sUser._id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectUser(sUser.email);
+                        }}
+                        className="flex cursor-pointer items-center justify-between p-2.5 hover:bg-muted"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{sUser.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sUser.email}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -354,6 +461,9 @@ const Chat = () => {
                   onClick={() => {
                     setShowCompose(false);
                     setError("");
+                    setEmail("");
+                    setSuggestions([]);
+                    setShowDropdown(false);
                   }}
                   disabled={startingChat}
                 >

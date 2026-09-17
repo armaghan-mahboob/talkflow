@@ -33,3 +33,31 @@ export const lookupUser = async (req, res) => {
     });
   }
 };
+
+export const searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || !q.trim()) {
+      return res.json({
+        data: [],
+      });
+    }
+
+    const users = await User.find({
+      email: { $regex: q.trim(), $options: "i" },
+    })
+      .select("name email _id")
+      .limit(5);
+
+    res.json({
+      data: users,
+    });
+  } catch (error) {
+    console.error("Search users error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
