@@ -1,10 +1,49 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Send } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { socket } from "@/lib/socket";
+import {
+  encryptMessage,
+  decryptMessage,
+  getStoredPrivateKey,
+} from "@/lib/crypto";
+
+const decryptIncomingMessage = (message, otherPublicKey, myPrivateKey) => {
+  if (!message.encrypted) {
+    return {
+      ...message,
+      decryptedContent: message.content,
+      decryptionFailed: false,
+    };
+  }
+
+  if (!otherPublicKey || !myPrivateKey) {
+    return { ...message, decryptedContent: null, decryptionFailed: true };
+  }
+
+  const plaintext = decryptMessage(
+    message.ciphertext,
+    message.nonce,
+    otherPublicKey,
+    myPrivateKey,
+  );
+
+  if (plaintext === null) {
+    return { ...message, decryptedContent: null, decryptionFailed: true };
+  }
+
+  return { ...message, decryptedContent: plaintext, decryptionFailed: false };
+};
+
+const getOtherParticipant = (conversation, userId) => {
+  if (!conversation?.participants) return null;
+  return conversation.participants.find(
+    (participant) => participant._id !== userId,
+  );
+};
 
 const Conversation = () => {
   const { conversationId } = useParams();
@@ -16,22 +55,43 @@ const Conversation = () => {
   const [conversation, setConversation] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const conversationRef = useRef(null);
+
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
 
   useEffect(() => {
     socket.emit("join-conversation", conversationId);
   }, [conversationId]);
 
   useEffect(() => {
-    socket.on("receive-message", (newMessage) => {
-      if (newMessage.conversation === conversationId) {
-        setMessages((prev) => [...prev, newMessage]);
-      }
-    });
+    const handleReceiveMessage = (newMessage) => {
+      if (newMessage.conversation !== conversationId) return;
+
+      const otherParticipant = getOtherParticipant(
+        conversationRef.current,
+        user.id,
+      );
+      const myPrivateKey = getStoredPrivateKey();
+
+      const decrypted = decryptIncomingMessage(
+        newMessage,
+        otherParticipant?.publicKey,
+        myPrivateKey,
+      );
+
+      setMessages((prev) => [...prev, decrypted]);
+    };
+
+    socket.on("receive-message", handleReceiveMessage);
 
     return () => {
-      socket.off("receive-message");
+      socket.off("receive-message", handleReceiveMessage);
     };
-  }, [conversationId]);
+  }, [conversationId, user?.id]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -40,13 +100,29 @@ const Conversation = () => {
 
     if (!trimmedMessage) return;
 
+    const otherParticipant = getOtherParticipant(conversation, user.id);
+    const myPrivateKey = getStoredPrivateKey();
+
+    if (!otherParticipant?.publicKey || !myPrivateKey) {
+      setError("Cannot send — encryption keys are not available.");
+      return;
+    }
+
+    const { ciphertext, nonce } = encryptMessage(
+      trimmedMessage,
+      otherParticipant.publicKey,
+      myPrivateKey,
+    );
+
     socket.emit("send-message", {
       conversation: conversationId,
       sender: user.id,
-      content: trimmedMessage,
+      ciphertext,
+      nonce,
     });
 
     setMessage("");
+    setError("");
   };
 
   useEffect(() => {
@@ -54,7 +130,6 @@ const Conversation = () => {
       try {
         setLoading(true);
 
-        // Get user's conversations
         const conversationsResponse = await fetch(
           `http://localhost:5000/api/conversations/${user.id}`,
         );
@@ -73,7 +148,12 @@ const Conversation = () => {
 
         setConversation(currentConversation);
 
-        // Get messages
+        const otherParticipant = getOtherParticipant(
+          currentConversation,
+          user.id,
+        );
+        const myPrivateKey = getStoredPrivateKey();
+
         const messagesResponse = await fetch(
           `http://localhost:5000/api/messages/${conversationId}`,
         );
@@ -84,7 +164,15 @@ const Conversation = () => {
           throw new Error(messagesData.message || "Failed to load messages");
         }
 
-        setMessages(messagesData.data);
+        const decryptedMessages = messagesData.data.map((item) =>
+          decryptIncomingMessage(
+            item,
+            otherParticipant?.publicKey,
+            myPrivateKey,
+          ),
+        );
+
+        setMessages(decryptedMessages);
       } catch (error) {
         console.error("Error loading conversation:", error);
       } finally {
@@ -97,19 +185,10 @@ const Conversation = () => {
     }
   }, [conversationId, user?.id]);
 
-  const getOtherParticipant = () => {
-    if (!conversation?.participants) return null;
-
-    return conversation.participants.find(
-      (participant) => participant._id !== user.id,
-    );
-  };
-
-  const otherParticipant = getOtherParticipant();
+  const otherParticipant = getOtherParticipant(conversation, user.id);
 
   return (
     <div className="flex h-screen flex-col">
-      {/* Header */}
       <header className="flex h-16 items-center gap-3 border-b px-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/chat")}>
           <ArrowLeft />
@@ -126,7 +205,6 @@ const Conversation = () => {
         </div>
       </header>
 
-      {/* Messages */}
       <main className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex h-full items-center justify-center">
@@ -153,12 +231,16 @@ const Conversation = () => {
                 >
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                      isOwnMessage
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
+                      item.decryptionFailed
+                        ? "bg-destructive/10 text-destructive italic"
+                        : isOwnMessage
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
                     }`}
                   >
-                    {item.content}
+                    {item.decryptionFailed
+                      ? "🔒 Message could not be decrypted"
+                      : item.decryptedContent}
                   </div>
                 </div>
               );
@@ -167,7 +249,6 @@ const Conversation = () => {
         )}
       </main>
 
-      {/* Message input */}
       <form onSubmit={handleSendMessage} className="border-t p-4">
         <div className="mx-auto flex max-w-3xl gap-2">
           <Input
@@ -180,6 +261,8 @@ const Conversation = () => {
             <Send />
           </Button>
         </div>
+
+        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
       </form>
     </div>
   );

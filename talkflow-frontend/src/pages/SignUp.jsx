@@ -11,6 +11,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { generateKeyPair, storeKeyPair } from "@/lib/crypto";
 
 function SignUp() {
   const [name, setName] = useState("");
@@ -20,6 +21,7 @@ function SignUp() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [pendingKeyPair, setPendingKeyPair] = useState(null);
 
   const navigate = useNavigate();
 
@@ -36,6 +38,9 @@ function SignUp() {
     setLoading(true);
 
     try {
+      const keyPair = generateKeyPair();
+      setPendingKeyPair(keyPair);
+
       const response = await fetch("http://localhost:5000/api/auth/signup", {
         method: "POST",
         headers: {
@@ -44,6 +49,7 @@ function SignUp() {
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
+          publicKey: keyPair.publicKey,
         }),
       });
 
@@ -118,6 +124,10 @@ function SignUp() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
+
+      if (pendingKeyPair) {
+        storeKeyPair(pendingKeyPair);
+      }
 
       navigate("/chat");
     } catch (error) {

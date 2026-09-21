@@ -71,33 +71,42 @@ io.on("connection", (socket) => {
     socket.join(conversationId);
   });
 
-  socket.on("send-message", async ({ conversation, sender, content }) => {
-    try {
-      const message = await Message.create({ conversation, sender, content });
-
-      io.to(conversation).emit("receive-message", message);
-
-      const conversationDoc = await Conversation.findById(conversation);
-
-      if (conversationDoc) {
-        conversationDoc.participants.forEach((participantId) => {
-          const participantIdStr = participantId.toString();
-
-          if (participantIdStr !== sender) {
-            const socketId = onlineUsers.get(participantIdStr);
-
-            if (socketId) {
-              io.to(socketId).emit("new-message-notification", {
-                conversation,
-              });
-            }
-          }
+  socket.on(
+    "send-message",
+    async ({ conversation, sender, ciphertext, nonce }) => {
+      try {
+        const message = await Message.create({
+          conversation,
+          sender,
+          ciphertext,
+          nonce,
+          encrypted: true,
         });
+
+        io.to(conversation).emit("receive-message", message);
+
+        const conversationDoc = await Conversation.findById(conversation);
+
+        if (conversationDoc) {
+          conversationDoc.participants.forEach((participantId) => {
+            const participantIdStr = participantId.toString();
+
+            if (participantIdStr !== sender) {
+              const socketId = onlineUsers.get(participantIdStr);
+
+              if (socketId) {
+                io.to(socketId).emit("new-message-notification", {
+                  conversation,
+                });
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Send message socket error:", error);
       }
-    } catch (error) {
-      console.error("Send message socket error:", error);
-    }
-  });
+    },
+  );
 });
 
 server.listen(PORT, () => {

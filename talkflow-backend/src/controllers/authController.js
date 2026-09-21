@@ -123,7 +123,7 @@ export const verifyOtp = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const { email, name, publicKey } = req.body;
 
     if (!email || !name) {
       return res.status(400).json({
@@ -131,7 +131,6 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Check if account already exists
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -140,10 +139,10 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Create new user
     const user = await User.create({
       email,
       name,
+      publicKey: publicKey || null,
     });
 
     res.status(201).json({
@@ -152,10 +151,51 @@ export const createUser = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
+        publicKey: user.publicKey,
       },
     });
   } catch (error) {
     console.error("Create user error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+export const updatePublicKey = async (req, res) => {
+  try {
+    const { email, publicKey } = req.body;
+
+    if (!email || !publicKey) {
+      return res.status(400).json({
+        message: "Email and publicKey are required",
+      });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { email },
+      { publicKey },
+      { new: true },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "Account not found",
+      });
+    }
+
+    res.json({
+      message: "Public key updated",
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        publicKey: user.publicKey,
+      },
+    });
+  } catch (error) {
+    console.error("Update public key error:", error);
 
     res.status(500).json({
       message: "Server error",

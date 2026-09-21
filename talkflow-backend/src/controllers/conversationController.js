@@ -21,7 +21,10 @@ export const createConversation = async (req, res) => {
       isNew = true;
     }
 
-    conversation = await conversation.populate("participants", "name email");
+    conversation = await conversation.populate(
+      "participants",
+      "name email publicKey",
+    );
 
     if (isNew) {
       const io = req.app.get("io");
@@ -54,7 +57,7 @@ export const getConversations = async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: userId,
-    }).populate("participants", "name email");
+    }).populate("participants", "name email publicKey");
 
     res.json({
       data: conversations,

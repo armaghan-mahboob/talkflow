@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { generateKeyPair, storeKeyPair, hasKeyPair } from "@/lib/crypto";
 
 function SignIn() {
   const [otpSent, setOtpSent] = useState(false);
@@ -52,6 +53,26 @@ function SignIn() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
+
+      if (!hasKeyPair()) {
+        const keyPair = generateKeyPair();
+        storeKeyPair(keyPair);
+
+        try {
+          await fetch("http://localhost:5000/api/auth/update-public-key", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email,
+              publicKey: keyPair.publicKey,
+            }),
+          });
+        } catch (keyError) {
+          console.error("Failed to update public key:", keyError);
+        }
+      }
 
       navigate("/chat");
     } catch (error) {

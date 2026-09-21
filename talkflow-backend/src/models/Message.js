@@ -14,8 +14,17 @@ const messageSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: true,
       trim: true,
+    },
+    ciphertext: {
+      type: String,
+    },
+    nonce: {
+      type: String,
+    },
+    encrypted: {
+      type: Boolean,
+      default: true,
     },
   },
   {
